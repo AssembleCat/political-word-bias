@@ -1,2 +1,8 @@
 # Pycharm local
 .idea/
+
+# .xlsx 회의록 정보
+data/
+
+# SQLite 데이터베이스 
+political_speeches.db
