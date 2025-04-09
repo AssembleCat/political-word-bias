@@ -12,6 +12,50 @@
 
 본 연구는 언어 사용 패턴을 통해 정치적 편향성을 객관적으로 측정할 수 있는 방법론을 제시하는 것을 목표로 합니다.
 
-### 국회회의록 출처
+**연관 Repository**
+- [21대 국회의원 정치성향 분석 (W-NOMINATE)](https://github.com/Prismedia/21kr-assembly-w-nominate): 국회의원들의 정치적 성향을 수치화하기 위한 W-NOMINATE 분석 레포지토리
 
-[국가학술정보 Open API](https://losi-open.nanet.go.kr/user/dataset/datasetList.do)
+### 데이터 출처
+
+**국회회의록 데이터**
+- 출처: [국가학술정보 Open API](https://losi-open.nanet.go.kr/user/dataset/datasetList.do)
+- 사용 회의록 분류:
+  - 국정감사
+  - 국정조사
+  - 상임위원회
+  - 본회의
+- 기간: 21대 국회 (2020년 5월 30일 ~ 2024년 5월 29일)
+
+### 의원발언 정보 전처리 과정
+
+국회 회의록 데이터를 분석에 적합한 형태로 가공하기 위해 다음과 같은 전처리 과정을 수행했습니다:
+
+1. **데이터베이스 생성** (`database/create_database.py`)
+   - 엑셀 형태의 국회 회의록 데이터를 SQLite 데이터베이스로 변환
+   - 필요한 컬럼만 선택하여 `speeches` 테이블 생성 (회의번호, 의원ID, 발언자, 발언내용1~7)
+   - 효율적인 검색을 위한 인덱스 생성 (의원ID, 발언자)
+
+2. **의원 편향 정보 테이블 생성** (`database/create_bias_table.py`)
+   - 의원들의 정치적 편향 정보를 담은 `member_bias` 테이블 생성
+   - `wnominate_results.csv` 파일에서 정당, 이름, 정치 성향 좌표(coord1D, coord2D) 데이터 추출
+   - 총 322명의 의원 정보 등록
+
+3. **데이터 정제** (`database/clean_data.py`)
+   - 의원ID가 없는 행 제거
+   - 발언자 이름 정제 (직함 제거 등)
+     - "XXX 위원" → "XXX"
+     - "XXX 위원장" → "XXX"
+     - "XXX 장관" → "XXX"
+     - "국방부장관 XXX" → "XXX"
+     - "부총리겸기획재정부장관 XXX" → "XXX" 등
+   - 정제된 발언자 이름을 `member_bias` 테이블의 이름과 매칭
+
+4. **의원ID 공백 문제 수정** (`database/fix_empty_member_ids.py`)
+   - 의원ID가 공백(' ')인 행 발견 (44,432개)
+   - 동일한 발언자의 다른 행에서 정상적인 의원ID를 찾아 업데이트
+   - 53명의 발언자, 44,432개 행의 의원ID 수정
+
+5. **발언 데이터 필터링** (`database/filter_speeches.py`)
+   - `member_bias` 테이블에 존재하는 의원 이름과 매칭되는 발언 데이터만 유지
+   - 매칭되지 않는 409,118개 행 제거 (주로 장관, 총리 등 의원이 아닌 발언자)
+   - 최종적으로 695,924개의 발언 데이터 확보
