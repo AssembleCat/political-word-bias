@@ -1,9 +1,10 @@
-# Pycharm local
+# Python local
 .idea/
+.venv
 __pycache__/
 
 # .xlsx 회의록 정보
 data/
 
 # SQLite 데이터베이스 
-political_speeches.db
+political_speeches.db 
