@@ -34,7 +34,7 @@ def filter_speeches():
     """
     non_matching = pd.read_sql_query(query, conn)
     print("\n=== 매칭되지 않는 상위 발언자 (삭제 예정) ===")
-    for index, row in non_matching.iterrows():
+    for _, row in non_matching.iterrows():
         print(f"{row['발언자']}: {row['발언수']:,}회")
     
     # 4. 매칭되지 않는 행 수 확인
@@ -82,7 +82,7 @@ def filter_speeches():
     """
     party_stats = pd.read_sql_query(query, conn)
     print("\n=== 정당별 발언 통계 ===")
-    for index, row in party_stats.iterrows():
+    for _, row in party_stats.iterrows():
         print(f"{row['party']}: {row['발언수']:,}회")
     
     # 데이터베이스 연결 종료
