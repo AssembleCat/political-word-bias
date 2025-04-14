@@ -4,8 +4,8 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LinearRegression
 import argparse
-import os
 
+# 데이터베이스 파일 경로
 DATABASE_NAME = 'political_speeches.db'
 
 class WordPoliticalBiasAnalyzer:
@@ -47,7 +47,7 @@ class WordPoliticalBiasAnalyzer:
             min_word_count: 최소 등장 횟수 (이 횟수 미만으로 등장한 단어는 제외)
         
         Returns:
-            의원-단어 행렬, 단어 목록
+            의원-단어 행렬, 단어 목록, 단어별 총 등장 횟수
         """
         print(f"의원-단어 행렬 생성 중...")
         
@@ -61,8 +61,10 @@ class WordPoliticalBiasAnalyzer:
         # 단어 사용 비율 계산 (정규화)
         word_freq_df['ratio'] = word_freq_df['count'] / word_freq_df['total_words']
         
-        # 최소 등장 횟수 필터링
+        # 각 단어별 총 등장 횟수 계산
         word_counts = word_freq_df.groupby('word')['count'].sum()
+        
+        # 최소 등장 횟수 필터링
         frequent_words = word_counts[word_counts >= min_word_count].index.tolist()
         word_freq_df = word_freq_df[word_freq_df['word'].isin(frequent_words)]
         
@@ -89,15 +91,19 @@ class WordPoliticalBiasAnalyzer:
         
         print(f"TF-IDF 변환 완료: {tfidf_df.shape[0]}명의 의원, {tfidf_df.shape[1]}개의 단어")
         
-        return tfidf_df, list(tfidf_df.columns)
+        # 단어별 총 등장 횟수를 Series로 반환
+        word_total_counts = word_counts[frequent_words]
+        
+        return tfidf_df, list(tfidf_df.columns), word_total_counts
     
-    def train_regression_model(self, word_speaker_matrix, words):
+    def train_regression_model(self, word_speaker_matrix, words, word_total_counts):
         """
         선형 회귀 모델 학습 (1차원 편향만 사용)
         
         Args:
             word_speaker_matrix: 의원-단어 행렬 (TF-IDF 적용됨)
             words: 단어 목록
+            word_total_counts: 단어별 총 등장 횟수
         
         Returns:
             단어별 정치적 편향 점수
@@ -124,13 +130,14 @@ class WordPoliticalBiasAnalyzer:
         # 단어별 정치적 편향 점수 계산
         word_bias = pd.DataFrame({
             'word': words,
-            'bias_score': model.coef_
+            'bias_score': model.coef_,
+            'total_count': [word_total_counts[word] for word in words]
         })
         
         # 절대값이 큰 순서로 정렬
         word_bias['abs_bias'] = word_bias['bias_score'].abs()
         word_bias = word_bias.sort_values('abs_bias', ascending=False).reset_index(drop=True)
-        word_bias = word_bias[['word', 'bias_score']]
+        word_bias = word_bias[['word', 'bias_score', 'total_count']]
         
         print(f"회귀 모델 학습 완료: {len(word_bias)}개 단어의 정치적 편향 계산")
         
@@ -148,10 +155,10 @@ class WordPoliticalBiasAnalyzer:
         word_freq_df = self.load_word_frequency_data()
         
         # 의원-단어 행렬 생성
-        word_speaker_matrix, words = self.create_word_speaker_matrix(word_freq_df, min_word_count)
+        word_speaker_matrix, words, word_total_counts = self.create_word_speaker_matrix(word_freq_df, min_word_count)
         
         # 회귀 모델 학습 및 단어별 정치적 편향 계산
-        word_bias = self.train_regression_model(word_speaker_matrix, words)
+        word_bias = self.train_regression_model(word_speaker_matrix, words, word_total_counts)
         
         # 결과 저장
         word_bias.to_csv(output_file, index=False, encoding='utf-8-sig')
